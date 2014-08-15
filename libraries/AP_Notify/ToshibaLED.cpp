@@ -187,9 +187,36 @@ void ToshibaLED::update_colours(void)
     if (AP_Notify::flags.armed) {
         // solid green if armed with GPS 3d lock
         if (AP_Notify::flags.gps_status >= AP_GPS::GPS_OK_FIX_3D) {
-            _red_des = TOSHIBA_LED_OFF;
-            _blue_des = TOSHIBA_LED_OFF;
-            _green_des = brightness;
+            // TODO detect Teensy LED controller and fallback to bright solid green when not found
+            if (true) {
+              switch(step) {
+                  case 0:
+                  case 2:
+                    // green dim
+                    _red_des = TOSHIBA_LED_OFF;
+                    _blue_des = TOSHIBA_LED_OFF;
+                    _green_des = TOSHIBA_LED_DIM;
+                    break;
+                  case 1:
+                  case 3:
+                  case 4:
+                  case 5:
+                  case 6:
+                  case 7:
+                  case 8:
+                  case 9:
+                      // all off
+                      _red_des = TOSHIBA_LED_OFF;
+                      _blue_des = TOSHIBA_LED_OFF;
+                      _green_des = TOSHIBA_LED_OFF;
+                      break;
+              }
+            } else {
+              // green on
+              _red_des = TOSHIBA_LED_OFF;
+              _blue_des = TOSHIBA_LED_OFF;
+              _green_des = brightness;
+            }
         }else{
             // solid blue if armed with no GPS lock
             _red_des = TOSHIBA_LED_OFF;
