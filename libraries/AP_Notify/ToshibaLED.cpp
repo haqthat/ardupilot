@@ -195,7 +195,7 @@ void ToshibaLED::update_colours(void)
                     // green dim
                     _red_des = TOSHIBA_LED_OFF;
                     _blue_des = TOSHIBA_LED_OFF;
-                    _green_des = TOSHIBA_LED_DIM;
+                    _green_des = 0x07;
                     break;
                   case 1:
                   case 3:
