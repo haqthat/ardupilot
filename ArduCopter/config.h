@@ -333,6 +333,11 @@
  #endif
 #endif
 
+// arming check's maximum acceptable vector difference between internal and external compass after vectors are normalized to field length of 1.0
+#ifndef COMPASS_ACCEPTABLE_VECTOR_DIFF
+  #define COMPASS_ACCEPTABLE_VECTOR_DIFF    0.75    // pre arm compass check will fail if internal vs external compass direction differ by more than 45 degrees
+ #endif
+
 //////////////////////////////////////////////////////////////////////////////
 //  OPTICAL_FLOW
 #ifndef OPTFLOW                         // sets global enabled/disabled flag for optflow (as seen in CLI)
@@ -441,7 +446,7 @@
  # define LAND_REQUIRE_MIN_THROTTLE_TO_DISARM ENABLED
 #endif
 #ifndef LAND_REPOSITION_DEFAULT
- # define LAND_REPOSITION_DEFAULT   0   // by default the pilot cannot override roll/pitch during landing
+ # define LAND_REPOSITION_DEFAULT   1   // by default the pilot can override roll/pitch during landing
 #endif
 #ifndef LAND_WITH_DELAY_MS
  # define LAND_WITH_DELAY_MS        4000    // default delay (in milliseconds) when a land-with-delay is triggered during a failsafe event
@@ -649,8 +654,8 @@
  # define THR_MAX_DEFAULT       1000            // maximum throttle sent to the motors
 #endif
 
-#ifndef THROTTLE_IN_DEADBAND
-# define THROTTLE_IN_DEADBAND    100            // the throttle input channel's deadband in PWM
+#ifndef THR_DZ_DEFAULT
+# define THR_DZ_DEFAULT         100             // the deadzone above and below mid throttle while in althold or loiter
 #endif
 
 #ifndef ALT_HOLD_P
