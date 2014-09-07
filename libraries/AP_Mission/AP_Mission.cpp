@@ -466,7 +466,18 @@ bool AP_Mission::mavlink_to_mission_cmd(const mavlink_mission_item_t& packet, AP
 
     case MAV_CMD_NAV_WAYPOINT:                          // MAV ID: 16
         copy_location = true;
-        cmd.p1 = packet.param1;                         // delay at waypoint in seconds
+        /*
+          the 15 byte limit means we can't fit both delay and radius
+          in the cmd structure. When we expand the mission structure
+          we can do this properly
+         */
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+        // acceptance radius in meters
+        cmd.p1 = packet.param2;
+#else
+        // delay at waypoint in seconds
+        cmd.p1 = packet.param1;                         
+#endif
         break;
 
     case MAV_CMD_NAV_LOITER_UNLIM:                      // MAV ID: 17
@@ -714,7 +725,13 @@ bool AP_Mission::mission_cmd_to_mavlink(const AP_Mission::Mission_Command& cmd, 
 
     case MAV_CMD_NAV_WAYPOINT:                          // MAV ID: 16
         copy_location = true;
-        packet.param1 = cmd.p1;                         // delay at waypoint in seconds
+#if APM_BUILD_TYPE(APM_BUILD_ArduPlane)
+        // acceptance radius in meters
+        packet.param2 = cmd.p1;
+#else
+        // delay at waypoint in seconds
+        packet.param1 = cmd.p1;
+#endif
         break;
 
     case MAV_CMD_NAV_LOITER_UNLIM:                      // MAV ID: 17
