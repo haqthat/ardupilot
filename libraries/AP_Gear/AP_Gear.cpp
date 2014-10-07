@@ -82,14 +82,18 @@ void AP_Gear::update()
         return;
     }
 
+    // TODO if ! armed return
+
     // get current altitude in meters
     float curr_alt = _inav->get_altitude() * 0.01f;
+
+    // check for auto conditions
     if (_released) {
         // legs down
         if (curr_alt > _alt_min) {
             if (_switch_time == 0) {
                 _switch_time = hal.scheduler->millis();
-            } else if (hal.scheduler->millis() - _switch_time > 3000) {
+            } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
                 _retract = true;
             }
         } else _switch_time = 0;
@@ -98,11 +102,13 @@ void AP_Gear::update()
         if (curr_alt < _alt_min) {
             if (_switch_time == 0) {
                 _switch_time = hal.scheduler->millis();
-            } else if (hal.scheduler->millis() - _switch_time > 3000) {
+            } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
                 _retract = false;
             }
         } else _switch_time = 0;
     }
+
+    // TODO check for failsafe condition
 
     if (_released && _retract) {
         RC_Channel_aux::set_radio(RC_Channel_aux::k_landinggear, _servo_on_pwm);

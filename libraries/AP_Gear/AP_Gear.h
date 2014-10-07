@@ -19,10 +19,11 @@
 #define AP_GEAR_RELEASE_DELAY_MS           500    // delay in milliseconds between call to release() and when servo or relay actually moves.  Allows for warning to user
 #define AP_GEAR_RELEASE_DURATION_MS       1000    // when parachute is released, servo or relay stay at their released position/value for 1000ms (1second)
 
-#define AP_GEAR_SERVO_ON_PWM_DEFAULT      1300    // default PWM value to move servo to when shutter is activated
+#define AP_GEAR_SERVO_ON_PWM_DEFAULT      1900    // default PWM value to move servo to when shutter is activated
 #define AP_GEAR_SERVO_OFF_PWM_DEFAULT     1100    // default PWM value to move servo to when shutter is deactivated
 
-#define AP_GEAR_ALT_MIN_DEFAULT            10     // default min altitude the vehicle should have before parachute is released
+#define AP_GEAR_ALT_MIN_DEFAULT            5      // default min altitude the vehicle will retract / release
+#define AP_GEAR_AUTO_TIMEOUT_DEFAULT      2000
 
 /// @class	AP_Gear
 /// @brief	Class managing the release and retract of landing gear
