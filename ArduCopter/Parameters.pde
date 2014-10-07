@@ -932,6 +932,10 @@ const AP_Param::Info var_info[] PROGMEM = {
     GOBJECT(parachute,		"CHUTE_", AP_Parachute),
 #endif
 
+	// @Group: GEAR_
+    // @Path: ../libraries/AP_Gear/AP_Gear.cpp
+    GOBJECT(gear,		"GEAR_", AP_Gear),
+
     // @Group: COMPASS_
     // @Path: ../libraries/AP_Compass/Compass.cpp
     GOBJECT(compass,        "COMPASS_", Compass),

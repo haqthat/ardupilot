@@ -156,6 +156,7 @@
 #include <AP_Parachute.h>		// Parachute release library
 #endif
 #include <AP_Terrain.h>
+#include <AP_Gear.h>
 
 // AP_HAL to Arduino compatibility layer
 #include "compat.h"
@@ -746,6 +747,11 @@ static AP_Parachute parachute(relay);
 #if AP_TERRAIN_AVAILABLE
 AP_Terrain terrain(ahrs, mission, rally);
 #endif
+
+////////////////////////////////////////////////////////////////////////////////
+// automatic landing gear
+////////////////////////////////////////////////////////////////////////////////
+static AP_Gear gear(ahrs);
 
 ////////////////////////////////////////////////////////////////////////////////
 // Nav Guided - allows external computer to control the vehicle during missions
