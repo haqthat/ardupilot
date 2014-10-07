@@ -130,9 +130,10 @@ void AP_Gear::update()
     }
     
     // check for landing modes (RTL, Land)
+    // TODO use words not numbers
     switch (control_mode) {
-        case RTL:
-        case LAND:
+        case 6: //RTL:
+        case 9: //LAND:
             _retract = false;
             break;
     }
