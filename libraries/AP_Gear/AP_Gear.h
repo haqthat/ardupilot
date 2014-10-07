@@ -22,7 +22,8 @@
 #define AP_GEAR_SERVO_ON_PWM_DEFAULT      1900    // default PWM value to move servo to when shutter is activated
 #define AP_GEAR_SERVO_OFF_PWM_DEFAULT     1100    // default PWM value to move servo to when shutter is deactivated
 
-#define AP_GEAR_ALT_MIN_DEFAULT            5      // default min altitude the vehicle will retract / release
+#define AP_GEAR_ALT_MIN_DEFAULT            5      // default min altitude in meters the vehicle will retract / release
+#define AP_GEAR_SPEED_MAX_DEFAULT          5      // default max horizontal speed in m/s the vehicle will retract / release
 #define AP_GEAR_AUTO_TIMEOUT_DEFAULT      2000
 
 /// @class	AP_Gear
@@ -35,7 +36,7 @@ public:
     AP_Gear(const AP_InertialNav* inav) :
         _inav(inav),
         _switch_time(0),
-        _released(true),
+        _released(false),
         _retract(false)
     {
         // setup parameter defaults
@@ -72,6 +73,7 @@ private:
     AP_Int16    _servo_on_pwm;  // PWM value to move servo to when shutter is activated
     AP_Int16    _servo_off_pwm; // PWM value to move servo to when shutter is deactivated
     AP_Int16    _alt_min;       // min altitude the vehicle should have before landing gear is retracted
+    AP_Int16    _speed_max;     // max speed the vehile should have before landing gear is released
 
     // internal variables
     const AP_InertialNav *const _inav;

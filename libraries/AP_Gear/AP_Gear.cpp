@@ -25,7 +25,7 @@ const AP_Param::GroupInfo AP_Gear::var_info[] PROGMEM = {
     // @Units: pwm
     // @Increment: 1
     // @User: Standard
-    AP_GROUPINFO("SERVO_ON", 2, AP_Gear, _servo_on_pwm, AP_GEAR_SERVO_ON_PWM_DEFAULT),
+    AP_GROUPINFO("SERVO_ON", 1, AP_Gear, _servo_on_pwm, AP_GEAR_SERVO_ON_PWM_DEFAULT),
 
     // @Param: SERVO_OFF
     // @DisplayName: Servo OFF PWM value
@@ -34,16 +34,25 @@ const AP_Param::GroupInfo AP_Gear::var_info[] PROGMEM = {
     // @Units: pwm
     // @Increment: 1
     // @User: Standard
-    AP_GROUPINFO("SERVO_OFF", 3, AP_Gear, _servo_off_pwm, AP_GEAR_SERVO_OFF_PWM_DEFAULT),
+    AP_GROUPINFO("SERVO_OFF", 2, AP_Gear, _servo_off_pwm, AP_GEAR_SERVO_OFF_PWM_DEFAULT),
 
     // @Param: ALT_MIN
-    // @DisplayName: Parachute min altitude in cm above home
-    // @Description: Parachute min altitude above home.  Parachute will not be released below this altitude.  0 to disable alt check.
-    // @Range: 0 32000
+    // @DisplayName: Altitude at which the gear is either retracted or released
+    // @Description: The vehicle has to cross this height limit for at least 3 seconds for the landing gear to be activated
+    // @Range: 1 100
     // @Units: Meters
     // @Increment: 1
     // @User: Standard
-    AP_GROUPINFO("ALT_MIN", 4, AP_Gear, _alt_min, AP_GEAR_ALT_MIN_DEFAULT),
+    AP_GROUPINFO("ALT_MIN", 3, AP_Gear, _alt_min, AP_GEAR_ALT_MIN_DEFAULT),
+
+    // @Param: SPEED_MAX
+    // @DisplayName: 
+    // @Description: Maximum speed the vehicle has to be below of before the landing gear is released. 0 to disable alt check.
+    // @Range: 0 100
+    // @Units: m/s
+    // @Increment: 1
+    // @User: Standard
+    AP_GROUPINFO("SPEED_MAX", 4, AP_Gear, _speed_max, AP_GEAR_SPEED_MAX_DEFAULT),
 
     AP_GROUPEND
 };
@@ -82,15 +91,16 @@ void AP_Gear::update()
         return;
     }
 
-    // TODO if ! armed return
-
     // get current altitude in meters
     float curr_alt = _inav->get_altitude() * 0.01f;
 
     // check for auto conditions
     if (_released) {
         // legs down
+
         if (curr_alt > _alt_min) {
+            // move up?
+
             if (_switch_time == 0) {
                 _switch_time = hal.scheduler->millis();
             } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
@@ -99,16 +109,34 @@ void AP_Gear::update()
         } else _switch_time = 0;
     } else {
         // legs up
+
         if (curr_alt < _alt_min) {
-            if (_switch_time == 0) {
-                _switch_time = hal.scheduler->millis();
-            } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
-                _retract = false;
-            }
+            // move down?
+
+            float curr_speed = _inav->get_velocity_xy() * 0.01f;
+            // not if too fast!
+            if (curr_speed <= _speed_max) {
+                if (_switch_time == 0) {
+                    _switch_time = hal.scheduler->millis();
+                } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
+                    _retract = false;
+                }
+            } else _switch_time = 0;
+
         } else _switch_time = 0;
     }
 
-    // TODO check for failsafe condition
+    // check for landing modes (RTL, Land)
+
+    // check for failsafe condition
+    if (AP_Notify::flags.failsafe_radio || AP_Notify::flags.failsafe_battery || 
+        AP_Notify::flags.failsafe_gps) {
+        _retract = false;
+    }
+
+    if (!AP_Notify::flags.armed) {
+        _retract = false;
+    }
 
     if (_released && _retract) {
         RC_Channel_aux::set_radio(RC_Channel_aux::k_landinggear, _servo_on_pwm);
