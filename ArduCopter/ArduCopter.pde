@@ -1157,6 +1157,8 @@ static void three_hz_loop()
     sprayer.update();
 #endif
 
+    gear.update();
+    
     update_events();
 
     if(g.radio_tuning > 0)
