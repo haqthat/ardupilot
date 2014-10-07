@@ -8,7 +8,7 @@
 
 #include <AP_Param.h>
 #include <AP_Common.h>
-#include <AP_Relay.h>
+#include <AP_InertialNav.h>     // Inertial Navigation library
 
 #define AP_GEAR_TRIGGER_TYPE_RELAY_0       0
 #define AP_GEAR_TRIGGER_TYPE_RELAY_1       1
@@ -72,7 +72,7 @@ private:
     AP_Int16    _alt_min;       // min altitude the vehicle should have before landing gear is retracted
 
     // internal variables
-    const AP_AHRS &ahrs;
+    const AP_InertialNav *const _inav;
     bool        _released;      // true if the parachute has been released
     bool        _retract;
 };
