@@ -128,16 +128,16 @@ void AP_Gear::update()
             } else _switch_time = 0;
         }
     }
-    
+    /*    
     // check for landing modes (RTL, Land)
-    // TODO use words not numbers
     switch (control_mode) {
         case 6: //RTL:
         case 9: //LAND:
             _retract = false;
             break;
     }
-
+    */
+    
     // check for failsafe condition
     if (AP_Notify::flags.failsafe_radio || AP_Notify::flags.failsafe_battery || 
         AP_Notify::flags.failsafe_gps) {
