@@ -308,6 +308,7 @@ public:
         k_param_acro_balance_roll,
         k_param_acro_balance_pitch,
         k_param_acro_yaw_p, // 244
+	k_param_gear,
 
         // 254,255: reserved
     };
