@@ -61,7 +61,7 @@ void AP_Gear::release()
     if (_enabled <= 0) {
         return;
     }
-    retract = false;
+    _retract = false;
 }
 
 /// retract - retract landing gear
@@ -71,7 +71,7 @@ void AP_Gear::retract()
     if (_enabled <= 0) {
         return;
     }
-    retract = true;
+    _retract = true;
 }
 
 /// update - shuts off the trigger should be called at about 10hz
@@ -85,10 +85,10 @@ void AP_Gear::update()
     // get current altitude in meters
     float curr_alt = _inav->get_altitude() * 0.01f;
 
-    if (_released && retract) {
+    if (_released && _retract) {
         RC_Channel_aux::set_radio(RC_Channel_aux::k_landinggear, _servo_on_pwm);
         _released = false;
-    } else if (!_released && !retract) {
+    } else if (!_released && !_retract) {
         RC_Channel_aux::set_radio(RC_Channel_aux::k_landinggear, _servo_off_pwm);
         _released = true;
     }
