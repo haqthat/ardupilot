@@ -33,6 +33,7 @@ public:
     /// Constructor
     AP_Gear(const AP_InertialNav* inav) :
         _inav(inav),
+        _switch_time(0),
         _released(true),
         _retract(false)
     {
@@ -75,6 +76,7 @@ private:
     const AP_InertialNav *const _inav;
     bool        _released;      // true if the parachute has been released
     bool        _retract;
+    uint32_t    _switch_time;
 };
 
 #endif /* AP_GEAR_H */
