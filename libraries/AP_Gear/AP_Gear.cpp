@@ -137,15 +137,17 @@ void AP_Gear::update()
             break;
     }
     */
-    
+
+    /*
     // check for failsafe condition
-    if (AP_Notify::flags.failsafe_radio || AP_Notify::flags.failsafe_battery || 
-        AP_Notify::flags.failsafe_gps) {
+    if (AP_Notify::flags.failsafe_radio > 0|| AP_Notify::flags.failsafe_battery > 0 || 
+        AP_Notify::flags.failsafe_gps > 0) {
         _retract = false;
     }
+    */
 
     // never retract when not armed
-    if (!AP_Notify::flags.armed) {
+    if (AP_Notify::flags.armed <= 0) {
         _retract = false;
     }
 
