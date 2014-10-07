@@ -38,8 +38,8 @@ const AP_Param::GroupInfo AP_Gear::var_info[] PROGMEM = {
 
     // @Param: ALT_MIN
     // @DisplayName: Altitude at which the gear is either retracted or released
-    // @Description: The vehicle has to cross this height limit for at least 3 seconds for the landing gear to be activated
-    // @Range: 1 100
+    // @Description: The vehicle has to cross this height limit for at least 3 seconds for the landing gear to be activated. 0 to disable alt check.
+    // @Range: 0 100
     // @Units: Meters
     // @Increment: 1
     // @User: Standard
@@ -47,7 +47,7 @@ const AP_Param::GroupInfo AP_Gear::var_info[] PROGMEM = {
 
     // @Param: SPEED_MAX
     // @DisplayName: 
-    // @Description: Maximum speed the vehicle has to be below of before the landing gear is released. 0 to disable alt check.
+    // @Description: Maximum speed the vehicle has to be below of before the landing gear is released. 0 to disable speed check.
     // @Range: 0 100
     // @Units: m/s
     // @Increment: 1
@@ -94,39 +94,48 @@ void AP_Gear::update()
     // get current altitude in meters
     float curr_alt = _inav->get_altitude() * 0.01f;
 
-    // check for auto conditions
-    if (_released) {
-        // legs down
+    // auto retract / release based on altitude
+    if (_alt_min > 0) {
 
-        if (curr_alt > _alt_min) {
-            // move up?
+        if (_released) {
+            // legs down
 
-            if (_switch_time == 0) {
-                _switch_time = hal.scheduler->millis();
-            } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
-                _retract = true;
-            }
-        } else _switch_time = 0;
-    } else {
-        // legs up
+            if (curr_alt > _alt_min) {
+                // move up?
 
-        if (curr_alt < _alt_min) {
-            // move down?
-
-            float curr_speed = _inav->get_velocity_xy() * 0.01f;
-            // not if too fast!
-            if (curr_speed <= _speed_max) {
                 if (_switch_time == 0) {
                     _switch_time = hal.scheduler->millis();
                 } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
-                    _retract = false;
+                    _retract = true;
                 }
             } else _switch_time = 0;
+        } else {
+            // legs up
 
-        } else _switch_time = 0;
+            if (curr_alt < _alt_min) {
+                // move down?
+
+                float curr_speed = _inav->get_velocity_xy() * 0.01f;
+                // not if too fast!
+                if (curr_speed <= _speed_max || _speed_max == 0) {
+                    if (_switch_time == 0) {
+                        _switch_time = hal.scheduler->millis();
+                    } else if (hal.scheduler->millis() - _switch_time > AP_GEAR_AUTO_TIMEOUT_DEFAULT) {
+                        _retract = false;
+                    }
+                } else _switch_time = 0;
+
+            } else _switch_time = 0;
+        }
     }
-
+    
     // check for landing modes (RTL, Land)
+    switch (control_mode) {
+        case RTL:
+        case LAND:
+            _retract = false;
+            break;
+    }
 
     // check for failsafe condition
     if (AP_Notify::flags.failsafe_radio || AP_Notify::flags.failsafe_battery || 
@@ -134,6 +143,7 @@ void AP_Gear::update()
         _retract = false;
     }
 
+    // never retract when not armed
     if (!AP_Notify::flags.armed) {
         _retract = false;
     }
