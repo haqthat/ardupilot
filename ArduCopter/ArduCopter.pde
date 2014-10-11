@@ -751,7 +751,9 @@ AP_Terrain terrain(ahrs, mission, rally);
 ////////////////////////////////////////////////////////////////////////////////
 // automatic landing gear
 ////////////////////////////////////////////////////////////////////////////////
+#if LANDINGGEAR == ENABLED
 static AP_Gear gear(&inertial_nav);
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // Nav Guided - allows external computer to control the vehicle during missions
@@ -1157,7 +1159,9 @@ static void three_hz_loop()
     sprayer.update();
 #endif
 
+#if LANDINGGEAR == ENABLED
     gear.update();
+#endif
     
     update_events();
 

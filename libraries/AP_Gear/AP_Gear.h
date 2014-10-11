@@ -22,9 +22,16 @@
 #define AP_GEAR_SERVO_ON_PWM_DEFAULT      1900    // default PWM value to move servo to when shutter is activated
 #define AP_GEAR_SERVO_OFF_PWM_DEFAULT     1100    // default PWM value to move servo to when shutter is deactivated
 
-#define AP_GEAR_ALT_MIN_DEFAULT            5      // default min altitude in meters the vehicle will retract / release
-#define AP_GEAR_SPEED_MAX_DEFAULT          5      // default max horizontal speed in m/s the vehicle will retract / release
+#define AP_GEAR_ALT_MIN_DEFAULT            300      // default min altitude in meters the vehicle will retract / release
+#define AP_GEAR_SPEED_MAX_DEFAULT           50    // default max horizontal speed in m/s the vehicle will retract / release
 #define AP_GEAR_AUTO_TIMEOUT_DEFAULT      2000
+
+// in ./ArduCopter/defines.h - how to get from here?
+// #define DATA_GEAR_DISABLED      52
+// #define DATA_GEAR_ENABLED       53
+// #define DATA_GEAR_AUTO          54
+// #define DATA_GEAR_UP            55
+// #define DATA_GEAR_DOWN          56
 
 /// @class	AP_Gear
 /// @brief	Class managing the release and retract of landing gear
@@ -35,9 +42,10 @@ public:
     /// Constructor
     AP_Gear(const AP_InertialNav* inav) :
         _inav(inav),
-        _switch_time(0),
         _released(false),
-        _retract(false)
+        _retract(false),
+        _switch_time(0),
+        _gearmode(2)
     {
         // setup parameter defaults
         AP_Param::setup_object_defaults(this, var_info);
@@ -48,6 +56,9 @@ public:
 
     /// enabled - returns true if landing gear operation is enabled
     bool enabled() const { return _enabled; }
+
+    /// autonomous mode - retract above x meters and release below with speed < y
+    void autonomous();
 
     /// enabled - returns true if landing gear operation is enabled
     bool released() const { return _released; }
@@ -80,6 +91,7 @@ private:
     bool        _released;      // true if the parachute has been released
     bool        _retract;
     uint32_t    _switch_time;
+    uint8_t     _gearmode;      // 0 manual release, 1 manual retract, 2 autonomous
 };
 
 #endif /* AP_GEAR_H */
