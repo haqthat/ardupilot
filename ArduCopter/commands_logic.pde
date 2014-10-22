@@ -33,7 +33,7 @@ static void auto_spline_start(const Vector3f& destination, bool stopped_at_start
 static bool start_command(const AP_Mission::Mission_Command& cmd)
 {
     // To-Do: logging when new commands start/end
-    if (g.log_bitmask & MASK_LOG_CMD) {
+    if (should_log(MASK_LOG_CMD)) {
         Log_Write_Cmd(cmd);
     }
 
@@ -782,6 +782,7 @@ static void do_yaw(const AP_Mission::Mission_Command& cmd)
 	set_auto_yaw_look_at_heading(
 		cmd.content.yaw.angle_deg,
 		cmd.content.yaw.turn_rate_dps,
+		cmd.content.yaw.direction,
 		cmd.content.yaw.relative_angle);
 }
 
@@ -913,7 +914,7 @@ static void do_take_picture()
 {
 #if CAMERA == ENABLED
     camera.trigger_pic();
-    if (g.log_bitmask & MASK_LOG_CAMERA) {
+    if (should_log(MASK_LOG_CAMERA)) {
         DataFlash.Log_Write_Camera(ahrs, gps, current_loc);
     }
 #endif

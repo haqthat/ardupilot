@@ -295,6 +295,15 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Increment: 1
     GSCALAR(throttle_mid,        "THR_MID",    THR_MID_DEFAULT),
 
+    // @Param: THR_DZ
+    // @DisplayName: Throttle deadzone
+    // @Description: The deadzone above and below mid throttle.  Used in AltHold, Loiter, PosHold flight modes
+    // @User: Standard
+    // @Range: 0 300
+    // @Units: pwm
+    // @Increment: 1
+    GSCALAR(throttle_deadzone,  "THR_DZ",    THR_DZ_DEFAULT),
+
     // @Param: FLTMODE1
     // @DisplayName: Flight Mode 1
     // @Description: Flight mode when Channel 5 pwm is <= 1230
@@ -345,8 +354,8 @@ const AP_Param::Info var_info[] PROGMEM = {
 
     // @Param: LOG_BITMASK
     // @DisplayName: Log bitmask
-    // @Description: 2 byte bitmap of log types to enable
-    // @Values: 830:Default,894:Default+RCIN,958:Default+IMU,1854:Default+Motors,-6146:NearlyAll,0:Disabled
+    // @Description: 4 byte bitmap of log types to enable
+    // @Values: 830:Default,894:Default+RCIN,958:Default+IMU,1854:Default+Motors,-6146:NearlyAll-AC315,43006:NearlyAll,131070:All+DisarmedLogging,0:Disabled
     // @User: Standard
     GSCALAR(log_bitmask,    "LOG_BITMASK",          DEFAULT_LOG_BITMASK),
 
@@ -447,11 +456,18 @@ const AP_Param::Info var_info[] PROGMEM = {
     GSCALAR(land_repositioning, "LAND_REPOSITION",     LAND_REPOSITION_DEFAULT),
 
     // @Param: EKF_CHECK_THRESH
-    // @DisplayName: EKF and InertialNav check compass and velocity variance threshold
+    // @DisplayName: EKF check compass and velocity variance threshold
     // @Description: Allows setting the maximum acceptable compass and velocity variance (0 to disable check)
     // @Values: 0:Disabled, 0.6:Default, 1.0:Relaxed
     // @User: Advanced
     GSCALAR(ekfcheck_thresh, "EKF_CHECK_THRESH",    EKFCHECK_THRESHOLD_DEFAULT),
+
+    // @Param: DCM_CHECK_THRESH
+    // @DisplayName: DCM yaw error threshold
+    // @Description: Allows setting the maximum acceptable yaw error as a sin of the yaw error (0 to disable check)
+    // @Values: 0:Disabled, 0.8:Default, 0.98:Relaxed
+    // @User: Advanced
+    GSCALAR(dcmcheck_thresh, "DCM_CHECK_THRESH",    DCMCHECK_THRESHOLD_DEFAULT),
 
 #if FRAME_CONFIG ==     HELI_FRAME
     // @Group: HS1_
@@ -589,7 +605,7 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Param: ACRO_EXPO
     // @DisplayName: Acro Expo
     // @Description: Acro roll/pitch Expo to allow faster rotation when stick at edges
-    // @Values: 0:Disabled,0.2:Low,0.3:Medium,0.4:High
+    // @Values: 0:Disabled,0.1:Very Low,0.2:Low,0.3:Medium,0.4:High,0.5:Very High
     // @User: Advanced
     GSCALAR(acro_expo,  "ACRO_EXPO",    ACRO_EXPO_DEFAULT),
 
@@ -799,7 +815,7 @@ const AP_Param::Info var_info[] PROGMEM = {
     // @Param: THR_ACCEL_IMAX
     // @DisplayName: Throttle acceleration controller I gain maximum
     // @Description: Throttle acceleration controller I gain maximum.  Constrains the maximum pwm that the I term will generate
-    // @Range: 0 500
+    // @Range: 0 1000
     // @Units: Percent*10
     // @User: Standard
 
@@ -1126,6 +1142,7 @@ const AP_Param::ConversionInfo conversion_table[] PROGMEM = {
     { Parameters::k_param_volt_div_ratio,     0,      AP_PARAM_FLOAT, "BATT_VOLT_MULT" },
     { Parameters::k_param_curr_amp_per_volt,  0,      AP_PARAM_FLOAT, "BATT_AMP_PERVOLT" },
     { Parameters::k_param_pack_capacity,      0,      AP_PARAM_INT32, "BATT_CAPACITY" },
+    { Parameters::k_param_log_bitmask_old,    0,      AP_PARAM_INT16, "LOG_BITMASK" },
 };
 
 static void load_parameters(void)
