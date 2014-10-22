@@ -124,6 +124,10 @@ start_command(const AP_Mission::Mission_Command& cmd)
         }
         break;
 
+    case MAV_CMD_DO_LAND_START:
+        // nothing special to do, just a placeholder
+        break;
+
 #if CAMERA == ENABLED
     case MAV_CMD_DO_CONTROL_VIDEO:                      // Control on-board camera capturing. |Camera ID (-1 for all)| Transmission: 0: disabled, 1: enabled compressed, 2: enabled raw| Transmission mode: 0: video stream, >0: single images every n seconds (decimal)| Recording: 0: disabled, 1: enabled compressed, 2: enabled raw| Empty| Empty| Empty|
         break;
@@ -233,6 +237,7 @@ static bool verify_command(const AP_Mission::Mission_Command& cmd)        // Ret
     case MAV_CMD_DO_MOUNT_CONFIGURE:
     case MAV_CMD_DO_MOUNT_CONTROL:
     case MAV_CMD_DO_INVERTED_FLIGHT:
+    case MAV_CMD_DO_LAND_START:
         return true;
 
     default:
@@ -282,8 +287,13 @@ static void do_takeoff(const AP_Mission::Mission_Command& cmd)
     auto_state.takeoff_altitude_cm     = next_WP_loc.alt;
     next_WP_loc.lat = home.lat + 10;
     next_WP_loc.lng = home.lng + 10;
+    auto_state.takeoff_speed_time_ms = 0;
     auto_state.takeoff_complete = false;                            // set flag to use gps ground course during TO.  IMU will be doing yaw drift correction
     // Flag also used to override "on the ground" throttle disable
+
+    // zero locked course
+    steer_state.locked_course_err = 0;
+    
 }
 
 static void do_nav_wp(const AP_Mission::Mission_Command& cmd)
@@ -332,11 +342,28 @@ static void do_loiter_time(const AP_Mission::Mission_Command& cmd)
 /********************************************************************************/
 static bool verify_takeoff()
 {
-    if (ahrs.yaw_initialised()) {
-        if (steer_state.hold_course_cd == -1) {
-            // save our current course to take off
-            steer_state.hold_course_cd = ahrs.yaw_sensor;
-            gcs_send_text_fmt(PSTR("Holding course %ld"), steer_state.hold_course_cd);
+    if (ahrs.yaw_initialised() && steer_state.hold_course_cd == -1) {
+        const float min_gps_speed = 5;
+        if (auto_state.takeoff_speed_time_ms == 0 && 
+            gps.status() >= AP_GPS::GPS_OK_FIX_3D && 
+            gps.ground_speed() > min_gps_speed) {
+            auto_state.takeoff_speed_time_ms = hal.scheduler->millis();
+        }
+        if (auto_state.takeoff_speed_time_ms != 0 &&
+            hal.scheduler->millis() - auto_state.takeoff_speed_time_ms >= 2000) {
+            // once we reach sufficient speed for good GPS course
+            // estimation we save our current GPS ground course
+            // corrected for summed yaw to set the take off
+            // course. This keeps wings level until we are ready to
+            // rotate, and also allows us to cope with arbitary
+            // compass errors for auto takeoff
+            float takeoff_course = wrap_PI(radians(gps.ground_course_cd()*0.01)) - steer_state.locked_course_err;
+            takeoff_course = wrap_PI(takeoff_course);
+            steer_state.hold_course_cd = wrap_360_cd(degrees(takeoff_course)*100);
+            gcs_send_text_fmt(PSTR("Holding course %ld at %.1fm/s (%.1f)"), 
+                              steer_state.hold_course_cd,
+                              gps.ground_speed(),
+                              degrees(steer_state.locked_course_err));
         }
     }
 
