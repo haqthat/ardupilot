@@ -156,6 +156,7 @@
 #include <AP_Parachute.h>		// Parachute release library
 #endif
 #include <AP_Terrain.h>
+#include <AP_Gear.h>
 
 // AP_HAL to Arduino compatibility layer
 #include "compat.h"
@@ -763,6 +764,13 @@ static struct {
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
+// automatic landing gear
+////////////////////////////////////////////////////////////////////////////////
+#if LANDINGGEAR == ENABLED
+static AP_Gear gear(&inertial_nav);
+#endif
+
+////////////////////////////////////////////////////////////////////////////////
 // function definitions to keep compiler from complaining about undeclared functions
 ////////////////////////////////////////////////////////////////////////////////
 static void pre_arm_checks(bool display_failure);
@@ -1156,6 +1164,10 @@ static void three_hz_loop()
     sprayer.update();
 #endif
 
+#if LANDINGGEAR == ENABLED
+    gear.update(control_mode);
+#endif
+    
     update_events();
 
     if(g.radio_tuning > 0)
