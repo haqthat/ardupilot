@@ -70,7 +70,7 @@ public:
     void retract();
 
     /// update - shuts off the trigger should be called at about 10hz
-    void update();
+    void update(int8_t control_mode);
 
     /// alt_min - returns the min altitude above home the vehicle should have before landing gear is retracted
     ///   0 = no auto retract

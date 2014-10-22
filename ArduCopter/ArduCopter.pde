@@ -1160,7 +1160,7 @@ static void three_hz_loop()
 #endif
 
 #if LANDINGGEAR == ENABLED
-    gear.update();
+    gear.update(control_mode);
 #endif
     
     update_events();

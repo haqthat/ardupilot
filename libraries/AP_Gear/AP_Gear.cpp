@@ -98,7 +98,7 @@ void AP_Gear::retract()
 }
 
 /// update - shuts off the trigger should be called at about 10hz
-void AP_Gear::update()
+void AP_Gear::update(int8_t control_mode)
 {
     // exit immediately if not enabled or parachute not to be released
     if (_enabled <= 0) {
@@ -149,30 +149,26 @@ void AP_Gear::update()
             }
         }
 
-        /*    
-        // check for landing modes (RTL, Land)
-        switch (control_mode) {
-            case 6: //RTL:
-            case 9: //LAND:
-                _retract = false;
-                break;
-        }
-        */
-
-        
-        // check for failsafe condition
-        if (AP_Notify::flags.failsafe_radio > 0|| AP_Notify::flags.failsafe_battery > 0 || 
-            AP_Notify::flags.failsafe_gps > 0) {
-            _retract = false;
-        }
-        
-
         // never retract when not armed
         if (AP_Notify::flags.armed <= 0) {
             _retract = false;
         }
     }
 
+    // check for landing modes (RTL, Land)
+    switch (control_mode) {
+//        case 6: //RTL:
+        case 9: //LAND:
+            _retract = false;
+            break;
+    }
+    
+    // check for failsafe condition
+    if (AP_Notify::flags.failsafe_radio > 0|| AP_Notify::flags.failsafe_battery > 0 || 
+        AP_Notify::flags.failsafe_gps > 0) {
+        _retract = false;
+    }
+    
     if (_released && _retract) {
         RC_Channel_aux::set_radio(RC_Channel_aux::k_landinggear, _servo_on_pwm);
         _released = false;
