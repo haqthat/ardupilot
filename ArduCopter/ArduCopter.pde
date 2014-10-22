@@ -207,6 +207,9 @@ static AP_Notify notify;
 // used to detect MAVLink acks from GCS to stop compassmot
 static uint8_t command_ack_counter;
 
+// has a log download started?
+static bool in_log_download;
+
 ////////////////////////////////////////////////////////////////////////////////
 // prototypes
 ////////////////////////////////////////////////////////////////////////////////
@@ -331,7 +334,11 @@ AP_Mission mission(ahrs, &start_command, &verify_command, &exit_mission);
 // Optical flow sensor
 ////////////////////////////////////////////////////////////////////////////////
  #if OPTFLOW == ENABLED
-static AP_OpticalFlow_ADNS3080 optflow;
+#if CONFIG_HAL_BOARD == HAL_BOARD_APM1 || CONFIG_HAL_BOARD == HAL_BOARD_APM2
+static AP_OpticalFlow_ADNS3080 optflow(ahrs);
+#elif CONFIG_HAL_BOARD == HAL_BOARD_PX4
+static AP_OpticalFlow_PX4 optflow(ahrs);
+#endif
  #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -389,6 +396,9 @@ static union {
         uint8_t rc_receiver_present : 1; // 14  // true if we have an rc receiver present (i.e. if we've ever received an update
         uint8_t compass_mot         : 1; // 15  // true if we are currently performing compassmot calibration
         uint8_t motor_test          : 1; // 16  // true if we are currently performing the motors test
+        uint8_t initialised         : 1; // 17  // true once the init_ardupilot function has completed.  Extended status to GCS is not sent until this completes
+        uint8_t land_complete_maybe : 1; // 18  // true if we may have landed (less strict version of land_complete)
+        uint8_t throttle_zero       : 1; // 19  // true if the throttle stick is at zero, debounced
     };
     uint32_t value;
 } ap;
@@ -572,8 +582,8 @@ static int16_t climb_rate;
 static int16_t sonar_alt;
 static uint8_t sonar_alt_health;   // true if we can trust the altitude from the sonar
 static float target_sonar_alt;      // desired altitude in cm above the ground
-// The altitude as reported by Baro in cm - Values can be quite high
-static int32_t baro_alt;
+static int32_t baro_alt;            // barometer altitude in cm above home
+static float baro_climbrate;        // barometer climbrate in cm/s
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -756,16 +766,6 @@ static AP_Gear gear(&inertial_nav);
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
-// Nav Guided - allows external computer to control the vehicle during missions
-////////////////////////////////////////////////////////////////////////////////
-#if NAV_GUIDED == ENABLED
-static struct {
-    uint32_t start_time;        // system time in milliseconds that control was handed to the external computer
-    Vector3f start_position;    // vehicle position when control was ahnded to the external computer
-} nav_guided;
-#endif
-
-////////////////////////////////////////////////////////////////////////////////
 // function definitions to keep compiler from complaining about undeclared functions
 ////////////////////////////////////////////////////////////////////////////////
 static void pre_arm_checks(bool display_failure);
@@ -798,6 +798,9 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { rc_loop,               4,     10 },
     { throttle_loop,         8,     45 },
     { update_GPS,            8,     90 },
+#if OPTFLOW == ENABLED
+    { update_optflow,        8,     20 },
+#endif
     { update_batt_compass,  40,     72 },
     { read_aux_switches,    40,      5 },
     { arm_motors_check,     40,      1 },
@@ -813,7 +816,7 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
 #endif
     { update_notify,         8,     10 },
     { one_hz_loop,         400,     42 },
-    { ekf_check,            40,      2 },
+    { ekf_dcm_check,        40,      2 },
     { crash_check,          40,      2 },
     { gcs_check_input,	     8,    550 },
     { gcs_send_heartbeat,  400,    150 },
@@ -829,6 +832,9 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { read_receiver_rssi,   40,      5 },
 #if FRSKY_TELEM_ENABLED == ENABLED
     { telemetry_send,       80,     10 },	
+#endif
+#if EPM_ENABLED == ENABLED
+    { epm_update,           40,     10 },
 #endif
 #ifdef USERHOOK_FASTLOOP
     { userhook_FastLoop,     4,     10 },
@@ -866,6 +872,9 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { rc_loop,               1,     100 },
     { throttle_loop,         2,     450 },
     { update_GPS,            2,     900 },
+#if OPTFLOW == ENABLED
+    { update_optflow,        2,     100 },
+#endif
     { update_batt_compass,  10,     720 },
     { read_aux_switches,    10,      50 },
     { arm_motors_check,     10,      10 },
@@ -881,7 +890,7 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
 #endif
     { update_notify,         2,     100 },
     { one_hz_loop,         100,     420 },
-    { ekf_check,            10,      20 },
+    { ekf_dcm_check,        10,      20 },
     { crash_check,          10,      20 },
     { gcs_check_input,	     2,     550 },
     { gcs_send_heartbeat,  100,     150 },
@@ -894,6 +903,9 @@ static const AP_Scheduler::Task scheduler_tasks[] PROGMEM = {
     { read_receiver_rssi,   10,      50 },
 #if FRSKY_TELEM_ENABLED == ENABLED
     { telemetry_send,       20,     100 },	
+#endif
+#if EPM_ENABLED == ENABLED
+    { epm_update,           10,      20 },
 #endif
 #ifdef USERHOOK_FASTLOOP
     { userhook_FastLoop,     1,    100  },
@@ -950,7 +962,7 @@ static void barometer_accumulate(void)
 
 static void perf_update(void)
 {
-    if (g.log_bitmask & MASK_LOG_PM)
+    if (should_log(MASK_LOG_PM))
         Log_Write_Performance();
     if (scheduler.debug()) {
         cliSerial->printf_P(PSTR("PERF: %u/%u %lu\n"),
@@ -1023,15 +1035,6 @@ static void fast_loop()
 
     // run the attitude controllers
     update_flight_mode();
-
-    // optical flow
-    // --------------------
-#if OPTFLOW == ENABLED
-    if(g.optflow_enabled) {
-        update_optical_flow();
-    }
-#endif  // OPTFLOW == ENABLED
-
 }
 
 // rc_loops - reads user input from transmitter/receiver
@@ -1097,7 +1100,7 @@ static void update_batt_compass(void)
         compass.set_throttle((float)g.rc_3.servo_out/1000.0f);
         compass.read();
         // log compass information
-        if (g.log_bitmask & MASK_LOG_COMPASS) {
+        if (should_log(MASK_LOG_COMPASS)) {
             Log_Write_Compass();
         }
     }
@@ -1110,16 +1113,16 @@ static void update_batt_compass(void)
 // should be run at 10hz
 static void ten_hz_logging_loop()
 {
-    if (g.log_bitmask & MASK_LOG_ATTITUDE_MED) {
+    if (should_log(MASK_LOG_ATTITUDE_MED)) {
         Log_Write_Attitude();
     }
-    if (g.log_bitmask & MASK_LOG_RCIN) {
+    if (should_log(MASK_LOG_RCIN)) {
         DataFlash.Log_Write_RCIN();
     }
-    if (g.log_bitmask & MASK_LOG_RCOUT) {
+    if (should_log(MASK_LOG_RCOUT)) {
         DataFlash.Log_Write_RCOUT();
     }
-    if ((g.log_bitmask & MASK_LOG_NTUN) && mode_requires_GPS(control_mode)) {
+    if (should_log(MASK_LOG_NTUN) && (mode_requires_GPS(control_mode) || landing_with_GPS())) {
         Log_Write_Nav_Tuning();
     }
 }
@@ -1134,11 +1137,11 @@ static void fifty_hz_logging_loop()
 #endif
 
 #if HIL_MODE == HIL_MODE_DISABLED
-    if (g.log_bitmask & MASK_LOG_ATTITUDE_FAST) {
+    if (should_log(MASK_LOG_ATTITUDE_FAST)) {
         Log_Write_Attitude();
     }
 
-    if (g.log_bitmask & MASK_LOG_IMU) {
+    if (should_log(MASK_LOG_IMU)) {
         DataFlash.Log_Write_IMU(ins);
     }
 #endif
@@ -1172,13 +1175,8 @@ static void three_hz_loop()
 // one_hz_loop - runs at 1Hz
 static void one_hz_loop()
 {
-    if (g.log_bitmask != 0) {
+    if (should_log(MASK_LOG_ANY)) {
         Log_Write_Data(DATA_AP_STATE, ap.value);
-    }
-
-    // log battery info to the dataflash
-    if (g.log_bitmask & MASK_LOG_CURRENT) {
-        Log_Write_Current();
     }
 
     // perform pre-arm checks & display failures every 30 seconds
@@ -1220,30 +1218,6 @@ static void one_hz_loop()
 #endif
 }
 
-// called at 100hz but data from sensor only arrives at 20 Hz
-#if OPTFLOW == ENABLED
-static void update_optical_flow(void)
-{
-    static uint32_t last_of_update = 0;
-    static uint8_t of_log_counter = 0;
-
-    // if new data has arrived, process it
-    if( optflow.last_update != last_of_update ) {
-        last_of_update = optflow.last_update;
-        optflow.update_position(ahrs.roll, ahrs.pitch, ahrs.sin_yaw(), ahrs.cos_yaw(), current_loc.alt);      // updates internal lon and lat with estimation based on optical flow
-
-        // write to log at 5hz
-        of_log_counter++;
-        if( of_log_counter >= 4 ) {
-            of_log_counter = 0;
-            if (g.log_bitmask & MASK_LOG_OPTFLOW) {
-                Log_Write_Optflow();
-            }
-        }
-    }
-}
-#endif  // OPTFLOW == ENABLED
-
 // called at 50hz
 static void update_GPS(void)
 {
@@ -1260,7 +1234,7 @@ static void update_GPS(void)
             last_gps_reading[i] = gps.last_message_time_ms(i);
 
             // log GPS message
-            if (g.log_bitmask & MASK_LOG_GPS) {
+            if (should_log(MASK_LOG_GPS)) {
                 DataFlash.Log_Write_GPS(gps, i, current_loc.alt);
             }
 
@@ -1346,7 +1320,7 @@ init_simple_bearing()
     super_simple_sin_yaw = simple_sin_yaw;
 
     // log the simple bearing to dataflash
-    if (g.log_bitmask != 0) {
+    if (should_log(MASK_LOG_ANY)) {
         Log_Write_Data(DATA_INIT_SIMPLE_BEARING, ahrs.yaw_sensor);
     }
 }
@@ -1411,13 +1385,13 @@ static void read_AHRS(void)
 static void update_altitude()
 {
     // read in baro altitude
-    baro_alt            = read_barometer();
+    read_barometer();
 
     // read in sonar altitude
     sonar_alt           = read_sonar();
 
     // write altitude info to dataflash logs
-    if (g.log_bitmask & MASK_LOG_CTUN) {
+    if (should_log(MASK_LOG_CTUN)) {
         Log_Write_Control_Tuning();
     }
 }
