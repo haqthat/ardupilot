@@ -287,29 +287,11 @@ static AP_Compass_HIL compass;
  #error Unrecognized CONFIG_COMPASS setting
 #endif
 
-#if CONFIG_INS_TYPE == HAL_INS_OILPAN || CONFIG_HAL_BOARD == HAL_BOARD_APM1
+#if CONFIG_HAL_BOARD == HAL_BOARD_APM1
 AP_ADC_ADS7844 apm1_adc;
 #endif
 
-#if CONFIG_INS_TYPE == HAL_INS_MPU6000
-AP_InertialSensor_MPU6000 ins;
-#elif CONFIG_INS_TYPE == HAL_INS_PX4
-AP_InertialSensor_PX4 ins;
-#elif CONFIG_INS_TYPE == HAL_INS_VRBRAIN
-AP_InertialSensor_VRBRAIN ins;
-#elif CONFIG_INS_TYPE == HAL_INS_HIL
-AP_InertialSensor_HIL ins;
-#elif CONFIG_INS_TYPE == HAL_INS_OILPAN
-AP_InertialSensor_Oilpan ins( &apm1_adc );
-#elif CONFIG_INS_TYPE == HAL_INS_FLYMAPLE
-AP_InertialSensor_Flymaple ins;
-#elif CONFIG_INS_TYPE == HAL_INS_L3G4200D
-AP_InertialSensor_L3G4200D ins;
-#elif CONFIG_INS_TYPE == HAL_INS_MPU9250
-AP_InertialSensor_MPU9250 ins;
-#else
-  #error Unrecognised CONFIG_INS_TYPE setting.
-#endif // CONFIG_INS_TYPE
+AP_InertialSensor ins;
 
 // Inertial Navigation EKF
 #if AP_AHRS_NAVEKF_AVAILABLE
@@ -408,9 +390,13 @@ static union {
 // This is the state of the flight control system
 // There are multiple states defined such as STABILIZE, ACRO,
 static int8_t control_mode = STABILIZE;
-// Used to maintain the state of the previous control switch position
-// This is set to -1 when we need to re-read the switch
-static uint8_t oldSwitchPosition;
+// Structure used to detect changes in the flight mode control switch
+static struct {
+    int8_t debounced_switch_position;   // currently used switch position
+    int8_t last_switch_position;        // switch position in previous iteration
+    uint32_t last_edge_time_ms;         // system time that switch position was last changed
+} control_switch_state;
+
 static RCMapper rcmap;
 
 // board specific config
@@ -666,7 +652,7 @@ AC_AttitudeControl attitude_control(ahrs, aparm, motors, g.p_stabilize_roll, g.p
 AC_PosControl pos_control(ahrs, inertial_nav, motors, attitude_control,
                         g.p_alt_hold, g.p_throttle_rate, g.pid_throttle_accel,
                         g.p_loiter_pos, g.pid_loiter_rate_lat, g.pid_loiter_rate_lon);
-static AC_WPNav wp_nav(inertial_nav, ahrs, pos_control);
+static AC_WPNav wp_nav(inertial_nav, ahrs, pos_control, attitude_control);
 static AC_Circle circle_nav(inertial_nav, ahrs, pos_control);
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -969,10 +955,8 @@ static void perf_update(void)
 void loop()
 {
     // wait for an INS sample
-    if (!ins.wait_for_sample(1000)) {
-        Log_Write_Error(ERROR_SUBSYSTEM_MAIN, ERROR_CODE_MAIN_INS_DELAY);
-        return;
-    }
+    ins.wait_for_sample();
+
     uint32_t timer = micros();
 
     // check loop time
