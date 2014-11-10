@@ -350,6 +350,9 @@ static uint8_t oldSwitchPosition = 254;
 // This is used to enable the inverted flight feature
 static bool inverted_flight     = false;
 
+// This is used to enable the PX4IO override for testing
+static bool px4io_override_enabled = false;
+
 static struct {
     // These are trim values used for elevon control
     // For elevons radio_in[CH_ROLL] and radio_in[CH_PITCH] are
@@ -836,15 +839,15 @@ void loop()
 
     delta_us_fast_loop  = timer - fast_loopTimer_us;
     G_Dt                = delta_us_fast_loop * 1.0e-6f;
-    fast_loopTimer_us   = timer;
 
-    if (delta_us_fast_loop > G_Dt_max) {
+    if (delta_us_fast_loop > G_Dt_max && fast_loopTimer_us != 0) {
         G_Dt_max = delta_us_fast_loop;
     }
 
     if (delta_us_fast_loop < G_Dt_min || G_Dt_min == 0) {
         G_Dt_min = delta_us_fast_loop;
     }
+    fast_loopTimer_us   = timer;
 
     mainLoop_count++;
 
@@ -1006,7 +1009,9 @@ static void obc_fs_check(void)
  */
 static void update_aux(void)
 {
-    RC_Channel_aux::enable_aux_servos();
+    if (!px4io_override_enabled) {
+        RC_Channel_aux::enable_aux_servos();
+    }
 
 #if MOUNT == ENABLED
         camera_mount.update_mount_type();
