@@ -98,7 +98,7 @@ void AP_Gear::retract()
 }
 
 /// update - shuts off the trigger should be called at about 10hz
-void AP_Gear::update(int8_t control_mode)
+void AP_Gear::update(int8_t control_mode, RTLState rtl_state)
 {
     // exit immediately if not enabled or parachute not to be released
     if (_enabled <= 0) {
@@ -155,9 +155,13 @@ void AP_Gear::update(int8_t control_mode)
         }
     }
 
+    // TODO need a way to override with manual controls:
     // check for landing modes (RTL, Land)
     switch (control_mode) {
-//        case 6: //RTL:
+        case 6: //RTL:
+            if (rtl_state >= FinalDescent)
+                _retract = false;
+
         case 9: //LAND:
             _retract = false;
             break;
